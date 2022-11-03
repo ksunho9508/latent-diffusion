@@ -109,3 +109,34 @@ class LPIPSWithDiscriminator(nn.Module):
                    }
             return d_loss, log
 
+
+class LPIPSBase(nn.Module):
+    def __init__(self, logvar_init=0.0,  pixelloss_weight=1.0,  perceptual_weight=1.0, ):
+        super().__init__() 
+        self.pixel_weight = pixelloss_weight
+        self.perceptual_loss = LPIPS().eval()
+        self.perceptual_weight = perceptual_weight
+        # output log variance
+        self.logvar = nn.Parameter(torch.ones(size=()) * logvar_init)
+ 
+ 
+    def forward(self, inputs, reconstructions, split="train"):
+        rec_loss = torch.abs(inputs.contiguous() - reconstructions.contiguous())
+        if self.perceptual_weight > 0:
+            p_loss = self.perceptual_loss(inputs.contiguous(), reconstructions.contiguous())
+            rec_loss = rec_loss + self.perceptual_weight * p_loss
+
+        nll_loss = rec_loss / torch.exp(self.logvar) + self.logvar
+        weighted_nll_loss = nll_loss 
+        # weighted_nll_loss = torch.sum(weighted_nll_loss) / weighted_nll_loss.shape[0]
+        weighted_nll_loss = torch.mean(weighted_nll_loss) 
+        # nll_loss = torch.sum(nll_loss) / nll_loss.shape[0] 
+        loss = weighted_nll_loss  
+
+        log = {"{}/total_loss".format(split): loss.clone().detach().mean(), "{}/logvar".format(split): self.logvar.detach(), 
+                "{}/rec_loss".format(split): rec_loss.detach().mean(),   
+                }
+        return loss, log
+
+         
+

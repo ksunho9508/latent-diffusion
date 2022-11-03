@@ -23,14 +23,14 @@ def adopt_weight(weight, global_step, threshold=0, value=0.):
     return weight
 
 
-def measure_perplexity(predicted_indices, n_embed):
-    # src: https://github.com/karpathy/deep-vector-quantization/blob/main/model.py
-    # eval cluster perplexity. when perplexity == num_embeddings then all clusters are used exactly equally
-    encodings = F.one_hot(predicted_indices, n_embed).float().reshape(-1, n_embed)
-    avg_probs = encodings.mean(0)
-    perplexity = (-(avg_probs * torch.log(avg_probs + 1e-10)).sum()).exp()
-    cluster_use = torch.sum(avg_probs > 0)
-    return perplexity, cluster_use
+# def measure_perplexity(predicted_indices, n_embed):
+#     # src: https://github.com/karpathy/deep-vector-quantization/blob/main/model.py
+#     # eval cluster perplexity. when perplexity == num_embeddings then all clusters are used exactly equally
+#     encodings = F.one_hot(predicted_indices, n_embed).float().reshape(-1, n_embed)
+#     avg_probs = encodings.mean(0)
+#     perplexity = (-(avg_probs * torch.log(avg_probs + 1e-10)).sum()).exp()
+#     cluster_use = torch.sum(avg_probs > 0)
+#     return perplexity, cluster_use
 
 def l1(x, y):
     return torch.abs(x-y)
@@ -97,7 +97,7 @@ class VQLPIPSWithDiscriminator(nn.Module):
 
     def forward(self, codebook_loss, inputs, reconstructions, optimizer_idx,
                 global_step, last_layer=None, cond=None, split="train", predicted_indices=None):
-        if not exists(codebook_loss):
+        if not codebook_loss:
             codebook_loss = torch.tensor([0.]).to(inputs.device)
         #rec_loss = torch.abs(inputs.contiguous() - reconstructions.contiguous())
         rec_loss = self.pixel_loss(inputs.contiguous(), reconstructions.contiguous())
@@ -139,13 +139,7 @@ class VQLPIPSWithDiscriminator(nn.Module):
                    "{}/d_weight".format(split): d_weight.detach(),
                    "{}/disc_factor".format(split): torch.tensor(disc_factor),
                    "{}/g_loss".format(split): g_loss.detach().mean(),
-                   }
-            if predicted_indices is not None:
-                assert self.n_classes is not None
-                with torch.no_grad():
-                    perplexity, cluster_usage = measure_perplexity(predicted_indices, self.n_classes)
-                log[f"{split}/perplexity"] = perplexity
-                log[f"{split}/cluster_usage"] = cluster_usage
+                   } 
             return loss, log
 
         if optimizer_idx == 1:
