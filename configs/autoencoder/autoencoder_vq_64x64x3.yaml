@@ -1,14 +1,12 @@
 model:
-  base_learning_rate: 4.5e-6
-  target: ldm.models.autoencoder.VQModel
+  base_learning_rate: 1.0e-4
+  target: ldm.models.vanila_ae.Vanila_AE
   params:
     monitor: "val/rec_loss"
     embed_dim: 3
     n_embed: 8192
     lossconfig:
-      target: ldm.modules.losses.VQLPIPSWithDiscriminator
-      params:
-        disc_start: 50001
+      target: ldm.modules.losses.Vanila
 
     ddconfig:
       double_z: false
@@ -39,6 +37,12 @@ data:
         size: 256
         degradation: pil_nearest
         data_dir: /data1/fundus_dataset/inhouse_dataset
+    test:
+      target: ldm.data.fundus.FundusSRTest
+      params:
+        size: 256
+        degradation: pil_nearest
+        data_dir: /data1/fundus_dataset/inhouse_dataset
 
 lightning:
   callbacks:
@@ -46,11 +50,13 @@ lightning:
       target: main.ImageLogger
       params:
         batch_frequency: 1000
+        valtest_batch_frequency: 200
         max_images: 8
         increase_log_steps: True
 
   trainer:
-    max_epochs: 10
+    max_epochs: 30
+    check_val_every_n_epoch: 1
     benchmark: True
     accumulate_grad_batches: 2
     precision: 16

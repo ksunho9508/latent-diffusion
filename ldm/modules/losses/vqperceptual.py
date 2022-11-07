@@ -159,3 +159,52 @@ class VQLPIPSWithDiscriminator(nn.Module):
                    "{}/logits_fake".format(split): logits_fake.detach().mean()
                    }
             return d_loss, log
+
+
+class VQLPIPS(nn.Module):
+    def __init__(self, codebook_weight=1.0, pixelloss_weight=1.0,perceptual_weight=1.0, use_actnorm=False, 
+                 n_classes=None, perceptual_loss="lpips",
+                 pixel_loss="l1"):
+        super().__init__() 
+        assert perceptual_loss in ["lpips", "clips", "dists"]
+        assert pixel_loss in ["l1", "l2"]
+        self.codebook_weight = codebook_weight
+        self.pixel_weight = pixelloss_weight
+        if perceptual_loss == "lpips":
+            print(f"{self.__class__.__name__}: Running with LPIPS.")
+            self.perceptual_loss = LPIPS().eval()
+        else:
+            raise ValueError(f"Unknown perceptual loss: >> {perceptual_loss} <<")
+        self.perceptual_weight = perceptual_weight
+
+        if pixel_loss == "l1":
+            self.pixel_loss = l1
+        else:
+            self.pixel_loss = l2   
+        self.n_classes = n_classes
+ 
+    def forward(self, codebook_loss, inputs, reconstructions, global_step, 
+                last_layer=None, cond=None, split="train", predicted_indices=None):
+        if not codebook_loss:
+            codebook_loss = torch.tensor([0.]).to(inputs.device)
+        #rec_loss = torch.abs(inputs.contiguous() - reconstructions.contiguous())
+        rec_loss = self.pixel_loss(inputs.contiguous(), reconstructions.contiguous())
+        if self.perceptual_weight > 0:
+            p_loss = self.perceptual_loss(inputs.contiguous(), reconstructions.contiguous())
+            rec_loss = rec_loss + self.perceptual_weight * p_loss
+        else:
+            p_loss = torch.tensor([0.0])
+
+        nll_loss = rec_loss 
+        nll_loss = torch.mean(nll_loss)
+   
+        loss = nll_loss + self.codebook_weight * codebook_loss.mean()
+
+        log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
+                "{}/quant_loss".format(split): codebook_loss.detach().mean(),
+                "{}/nll_loss".format(split): nll_loss.detach().mean(),
+                "{}/rec_loss".format(split): rec_loss.detach().mean(),
+                "{}/p_loss".format(split): p_loss.detach().mean(), 
+                } 
+        return loss, log
+ 

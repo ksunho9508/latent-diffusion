@@ -21,7 +21,7 @@
       "console": "integratedTerminal",
       "args": [
         "--base",
-        "configs/autoencoder/autoencoder_vq_16x16x16.yaml",
+        "configs/autoencoder/autoencoder_vq_64x64x3.yaml",
         "-t",
         "--gpus",
         "1"

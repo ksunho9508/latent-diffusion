@@ -102,7 +102,9 @@ class FundusSR(Dataset):
 
         return {'image': (image/127.5 - 1.0).astype(np.float32),
                 'LR_image': (LR_image/127.5 - 1.0).astype(np.float32)}
- 
+    
+    # def get_iter_per_epoch(self):
+    #     return len(self) // (self.batch_size * self.devices)
 
 class FundusSRTrain(FundusSR):
     def __init__(self, **kwargs):
@@ -112,7 +114,7 @@ class FundusSRTrain(FundusSR):
         csv_dir = os.path.join(self.data_dir, 'label_files/finding_train.csv')
         df = pd.read_csv(csv_dir)
         df["filename"] = df["filename"].apply(lambda x: x.replace("/media/ext", self.data_dir))
-        return df["filename"]
+        return df["filename"] 
 
 class FundusSRValidation(FundusSR):
     def __init__(self, **kwargs):
@@ -120,6 +122,16 @@ class FundusSRValidation(FundusSR):
 
     def get_base(self):
         csv_dir = os.path.join(self.data_dir, 'label_files/finding_val.csv')
+        df = pd.read_csv(csv_dir)
+        df["filename"] = df["filename"].apply(lambda x: x.replace("/media/ext", '/data1/fundus_dataset/inhouse_dataset'))
+        return df["filename"]
+
+class FundusSRTest(FundusSR):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def get_base(self):
+        csv_dir = os.path.join(self.data_dir, 'label_files/finding_test.csv')
         df = pd.read_csv(csv_dir)
         df["filename"] = df["filename"].apply(lambda x: x.replace("/media/ext", '/data1/fundus_dataset/inhouse_dataset'))
         return df["filename"]

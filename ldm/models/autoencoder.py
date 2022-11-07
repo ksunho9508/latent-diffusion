@@ -3,12 +3,10 @@ import pytorch_lightning as pl
 import torch.nn.functional as F
 import numpy as np
 from contextlib import contextmanager
-
+from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingWarmRestarts 
 from taming.modules.vqvae.quantize import VectorQuantizer2 as VectorQuantizer
-
 from ldm.modules.diffusionmodules.model import Encoder, Decoder
 from ldm.modules.distributions.distributions import DiagonalGaussianDistribution
-
 from ldm.util import instantiate_from_config
 
 
@@ -24,7 +22,7 @@ class VQModel(pl.LightningModule):
                  colorize_nlabels=None,
                  monitor=None,
                  batch_resize_range=None,
-                 scheduler_config=None,
+                 scheduler_config=True,
                  lr_g_factor=1.0,
                  remap=None,
                  sane_index_shape=False, # tell vector quantizer to return indices as bhw
@@ -197,8 +195,8 @@ class VQModel(pl.LightningModule):
     def configure_optimizers(self):
         lr_d = self.learning_rate
         lr_g = self.lr_g_factor*self.learning_rate
-        print("lr_d", lr_d)
-        print("lr_g", lr_g)
+        # print("lr_d", lr_d)
+        # print("lr_g", lr_g)
         opt_ae = torch.optim.Adam(list(self.encoder.parameters())+
                                   list(self.decoder.parameters())+
                                   list(self.quantize.parameters())+
@@ -208,23 +206,7 @@ class VQModel(pl.LightningModule):
         opt_disc = torch.optim.Adam(self.loss.discriminator.parameters(),
                                     lr=lr_d, betas=(0.5, 0.9))
 
-        if self.scheduler_config is not None:
-            scheduler = instantiate_from_config(self.scheduler_config)
-
-            print("Setting up LambdaLR scheduler...")
-            scheduler = [
-                {
-                    'scheduler': LambdaLR(opt_ae, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                },
-                {
-                    'scheduler': LambdaLR(opt_disc, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                },
-            ]
-            return [opt_ae, opt_disc], scheduler
+        
         return [opt_ae, opt_disc], []
 
     def get_last_layer(self):
